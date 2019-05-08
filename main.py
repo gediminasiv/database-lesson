@@ -11,25 +11,50 @@ app = Flask(__name__)
 @app.route("/", methods=["GET"])
 def index():
     email = request.cookies.get('email')
+    error = request.cookies.get('error')
     user = None
 
     if email:
         user = User.fetch_one(query=["email", "==", email])
 
-    return render_template('index.html', user=user)
+    response = make_response(render_template('index.html', user=user, error=error))
+
+    if error:
+        response.set_cookie('error', expires=0  )
+
+    return response
 
 @app.route("/login", methods=["POST"])
 def login():
     name = request.form.get('user-name')
     email = request.form.get('user-email')
 
-    user = User(name=name, email=email)
-    user.create()
+    user = User.fetch_one(query=["email", "==", email])
 
     response = make_response(redirect(url_for('index')))
-    response.set_cookie('email', email)
+
+    if not user:
+        user = User(name=name, email=email)
+        user.create()
+
+        response.set_cookie('email', email)
+
+        return response
+
+    response.set_cookie('error', 'This user already exists')
 
     return response
+@app.route("/users", methods=["GET"])
+def users():
+    email = request.cookies.get('email')
+    user = None
+
+    if email:
+        user = User.fetch_one(query=["email", "==", email])
+
+    users = User.fetch()
+
+    return render_template('users.html', users=users, user=user)
 
 @app.route("/logout", methods=["GET"])
 def logout():
